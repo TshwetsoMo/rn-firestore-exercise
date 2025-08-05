@@ -6,8 +6,15 @@ import ListScreen from './screens/ListScreen';
 import DetailsScreen from './screens/DetailsScreen';
 import CreateScreen from './screens/CreateScreen';
 
+// 1. Define the types for navigation
+export type RootStackParamList = {
+  Home: undefined;
+  Details: { itemId: string }; // Adjust this as needed
+  Add: undefined;
+};
 
-const Stack = createNativeStackNavigator();
+// 2. Pass RootStackParamList to createNativeStackNavigator
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
@@ -20,4 +27,3 @@ export default function App() {
     </NavigationContainer>
   );
 }
-

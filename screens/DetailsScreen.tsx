@@ -1,10 +1,30 @@
-import React, { useState } from 'react';
-import { Button, StyleSheet, Text, View, Alert } from 'react-native';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  Alert,
+  StyleSheet,
+  Pressable,
+  Dimensions,
+  ActivityIndicator,
+} from 'react-native';
+import {
+  useRoute,
+  useNavigation,
+  RouteProp,
+} from '@react-navigation/native';
+import {
+  doc,
+  onSnapshot,
+  updateDoc,
+  deleteDoc,
+} from 'firebase/firestore';
 import { db } from '../firebase';
+import { RootStackParamList } from '../App';
 
-// Define the expected type of route params
+type DetailsRouteProp = RouteProp<RootStackParamList, 'Details'>;
+const { width: screenWidth } = Dimensions.get('window');
+
 type BucketItem = {
   id: string;
   title: string;
@@ -14,30 +34,45 @@ type BucketItem = {
   completed: boolean;
 };
 
-type RouteParams = {
-  params: {
-    item: BucketItem;
-  };
-};
-
 const DetailsScreen = () => {
-  const route = useRoute<RouteProp<RouteParams, 'params'>>();
+  const route = useRoute<DetailsRouteProp>();
   const navigation = useNavigation();
-  const { item } = route.params;
+  const { itemId } = route.params;
 
-  const [completed, setCompleted] = useState(item.completed);
+  const [item, setItem] = useState<BucketItem | null>(null);
+  const [completed, setCompleted] = useState(false);
+
+  useEffect(() => {
+    const docRef = doc(db, 'bucketItems', itemId);
+    const unsubscribe = onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as Omit<BucketItem, 'id'>;
+        setItem({ id: snap.id, ...data });
+        setCompleted(data.completed);
+      }
+    });
+    return unsubscribe;
+  }, [itemId]);
+
+  if (!item) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" color="green" />
+      </View>
+    );
+  }
 
   const handleMarkCompleted = async () => {
     try {
-      const docRef = doc(db, 'bucketItems', item.id);
-      await updateDoc(docRef, { completed: true });
+      const ref = doc(db, 'bucketItems', item.id);
+      await updateDoc(ref, { completed: true });
       setCompleted(true);
     } catch (e) {
-      console.log('Error updating document', e);
+      console.error('Error updating document', e);
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     Alert.alert(
       'Confirm Delete',
       'Are you sure you want to delete this item?',
@@ -48,37 +83,50 @@ const DetailsScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const docRef = doc(db, 'bucketItems', item.id);
-              await deleteDoc(docRef);
+              const ref = doc(db, 'bucketItems', item.id);
+              await deleteDoc(ref);
               navigation.goBack();
             } catch (e) {
-              console.log('Error deleting document', e);
+              console.error('Error deleting document', e);
             }
           },
         },
-      ]
+      ],
+      { cancelable: false }
     );
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.text}>Description: {item.description}</Text>
-      <Text style={styles.text}>Due date: {item.due}</Text>
-      <Text style={styles.text}>Priority: {item.priority ? 'Yes' : 'No'}</Text>
+      <Text style={styles.text}>{item.description}</Text>
+      <Text style={styles.text}>Due: {item.due}</Text>
+      <Text style={styles.text}>
+        Priority: {item.priority ? 'Yes' : 'No'}
+      </Text>
 
-      <View style={styles.buttonContainer}>
-        <Button
-          title={completed ? 'Already done' : 'Mark Completed'}
-          color={completed ? 'gray' : 'green'}
-          disabled={completed}
-          onPress={handleMarkCompleted}
-        />
-      </View>
+      <Pressable
+        style={({ pressed }) => [
+          styles.actionButton,
+          pressed && styles.pressed,
+          completed && styles.disabledButton,
+        ]}
+        onPress={handleMarkCompleted}
+        disabled={completed}
+        android_ripple={{ color: '#e0f2f1' }}
+      >
+        <Text style={styles.buttonText}>
+          {completed ? 'Already Done' : 'Mark Completed'}
+        </Text>
+      </Pressable>
 
-      <View style={styles.buttonContainer}>
-        <Button title='Delete' color='red' onPress={handleDelete} />
-      </View>
+      <Pressable
+        style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
+        onPress={handleDelete}
+        android_ripple={{ color: '#ffebee' }}
+      >
+        <Text style={styles.buttonText}>Delete</Text>
+      </Pressable>
     </View>
   );
 };
@@ -86,22 +134,52 @@ const DetailsScreen = () => {
 export default DetailsScreen;
 
 const styles = StyleSheet.create({
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
     padding: 20,
     alignItems: 'center',
-    gap: 15,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    marginBottom: 12,
   },
   text: {
     fontSize: 16,
-    marginBottom: 5,
+    marginBottom: 8,
+    width: screenWidth * 0.9,
+    textAlign: 'center',
   },
-  buttonContainer: {
-    marginTop: 10,
-    width: '80%',
+  actionButton: {
+    backgroundColor: 'green',
+    paddingVertical: 14,
+    borderRadius: 8,
+    width: screenWidth * 0.9,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  deleteButton: {
+    backgroundColor: 'red',
+    paddingVertical: 14,
+    borderRadius: 8,
+    width: screenWidth * 0.9,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

@@ -1,80 +1,86 @@
-import { StyleSheet, Text, View, SafeAreaView, TextInput, TouchableOpacity, Switch, Alert } from 'react-native';
+/* CreateScreen.tsx */
 import React, { useState } from 'react';
-import { useNavigation } from '@react-navigation/core';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  Switch,
+  StyleSheet,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../App';
 import { createNewBucketItem } from '../services/DbService';
 
-const CreateScreen = () => {
-  const navigation: any = useNavigation();
+const { width } = Dimensions.get('window');
+type Props = NativeStackScreenProps<RootStackParamList, 'Add'>;
 
+const CreateScreen = ({ navigation }: Props) => {
   const [title, setTitle] = useState('');
-  const [priority, setPriority] = useState(false);
   const [due, setDue] = useState('');
   const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState(false);
 
   const handleCreation = async () => {
-    if (!title || !due || !description) {
+    if (!title.trim() || !due.trim() || !description.trim()) {
       Alert.alert('Missing Fields', 'Please fill out all fields.');
       return;
     }
 
-    const newItem = {
-      title,
-      due,
-      description,
-      priority,
-    };
-
     try {
-      await createNewBucketItem(newItem);
-      navigation.goBack();
+      await createNewBucketItem({ title, due, description, priority });
+      navigation.navigate('Home');
     } catch (error) {
-      Alert.alert('Error', 'Could not create item. Try again.');
-      console.log(error);
+      console.error(error);
+      Alert.alert('Error', 'Could not create item. Please try again.');
     }
   };
 
   return (
-    <SafeAreaView>
-      <View style={styles.container}>
-        <TextInput
-          style={styles.inputField}
-          placeholder="Bucket List Title"
-          onChangeText={setTitle}
-          value={title}
-        />
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <Text style={styles.heading}>Add a New Bucket List Item</Text>
 
-        <TextInput
-          style={styles.inputField}
-          placeholder="When do you want it done?"
-          onChangeText={setDue}
-          value={due}
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Title"
+        value={title}
+        onChangeText={setTitle}
+      />
 
-        <TextInput
-          multiline
-          numberOfLines={4}
-          style={styles.inputField}
-          placeholder="Description of bucket list"
-          onChangeText={setDescription}
-          value={description}
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Due Date"
+        value={due}
+        onChangeText={setDue}
+      />
 
-        <View style={styles.switch}>
-          <Switch
-            trackColor={{ false: 'black', true: 'green' }}
-            thumbColor={priority ? 'yellow' : 'white'}
-            ios_backgroundColor="#3e3e3e"
-            onValueChange={(toggle) => setPriority(toggle)}
-            value={priority}
-          />
-          <Text>Priority?</Text>
-        </View>
+      <TextInput
+        style={[styles.input, { height: 100 }]}
+        placeholder="Description"
+        value={description}
+        onChangeText={setDescription}
+        multiline
+      />
 
-        <TouchableOpacity style={styles.button} onPress={handleCreation}>
-          <Text style={styles.buttonText}>Create Bucket List Item</Text>
-        </TouchableOpacity>
+      <View style={styles.switchContainer}>
+        <Text>Priority:</Text>
+        <Switch value={priority} onValueChange={setPriority} />
       </View>
-    </SafeAreaView>
+
+      <TouchableOpacity
+        style={styles.createButton}
+        onPress={handleCreation}
+      >
+        <Text style={styles.buttonText}>Create Item</Text>
+      </TouchableOpacity>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -82,29 +88,41 @@ export default CreateScreen;
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 20,
+    backgroundColor: '#fff',
   },
-  inputField: {
-    borderWidth: 2,
-    borderColor: 'black',
-    marginTop: 15,
-    padding: 10,
+  heading: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
   },
-  button: {
+  input: {
+    width: width * 0.9,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    fontSize: 16,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  createButton: {
     backgroundColor: 'green',
-    textAlign: 'center',
-    padding: 15,
-    marginTop: 30,
+    paddingVertical: 14,
+    borderRadius: 8,
+    width: width * 0.9,
+    alignItems: 'center',
   },
   buttonText: {
-    textAlign: 'center',
     color: 'white',
+    fontSize: 16,
     fontWeight: 'bold',
-  },
-  switch: {
-    marginTop: 15,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 10,
   },
 });

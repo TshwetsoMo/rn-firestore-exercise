@@ -7,58 +7,79 @@ import {
   TouchableOpacity,
   View,
   FlatList,
+  Dimensions,
 } from 'react-native';
 import { AntDesign, Entypo } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 
+const { width: listWidth } = Dimensions.get('window');
+
 const ListScreen = () => {
   const navigation: any = useNavigation();
   const [items, setItems] = useState<any[]>([]);
 
-  const goToAdd = () => navigation.navigate('Add');
-
   useEffect(() => {
-    const q = query(collection(db, 'bucketItems'), orderBy('createdAt', 'desc'));
+    const q = query(
+      collection(db, 'bucketItems'),
+      orderBy('createdAt', 'desc')
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setItems(data);
     });
-
-    return unsubscribe; // Detach listener on unmount
+    return unsubscribe;
   }, []);
 
-  const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('Details', { item })}
-    >
-      <Text
-        style={item.completed ? { textDecorationLine: 'line-through', flex: 1 } : { flex: 1 }}
-      >
-        {item.title}
-      </Text>
-      {item.priority && <AntDesign name="star" size={24} color="orange" />}
-    </TouchableOpacity>
-  );
-
   return (
-    <SafeAreaView>
+    <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Pressable style={styles.addButton} onPress={goToAdd}>
-          <Text style={styles.addButtonText}>Add</Text>
-          <Entypo name="bucket" size={16} color="green" />
+        <Pressable
+          style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+          onPress={() => navigation.navigate('Add')}
+          android_ripple={{ color: '#e0f2f1' }}
+        >
+          <Entypo
+            name="bucket"
+            size={18}
+            color="green"
+            style={styles.icon}
+          />
+          <Text style={styles.addButtonText}>Add Item</Text>
         </Pressable>
 
         <FlatList
           data={items}
-          renderItem={renderItem}
           keyExtractor={(item) => item.id}
-          ListEmptyComponent={<Text>No bucket list items yet.</Text>}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.card}
+              activeOpacity={0.7}
+              onPress={() =>
+                navigation.navigate('Details', { itemId: item.id })
+              }
+            >
+              <Text
+                style={[
+                  styles.cardText,
+                  item.completed && styles.completedText,
+                ]}
+                numberOfLines={1}
+              >
+                {item.title}
+              </Text>
+              {item.priority && (
+                <AntDesign name="star" size={20} color="orange" />
+              )}
+            </TouchableOpacity>
+          )}
+          contentContainerStyle={
+            items.length === 0 && styles.emptyContainer
+          }
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No items yet.</Text>
+          }
         />
       </View>
     </SafeAreaView>
@@ -68,36 +89,39 @@ const ListScreen = () => {
 export default ListScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-  },
-  card: {
-    width: '100%',
-    backgroundColor: 'white',
-    padding: 15,
-    marginBottom: 10,
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-  },
+  safeArea: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, padding: 20 },
   addButton: {
-    backgroundColor: 'white',
-    borderColor: 'green',
-    borderWidth: 2,
-    padding: 10,
-    marginBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    borderWidth: 2,
+    borderColor: 'green',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+    width: listWidth * 0.9,
+    alignSelf: 'center',
   },
-  addButtonText: {
-    textAlign: 'center',
-    color: 'green',
-    fontWeight: 'bold',
+  pressed: { opacity: 0.7 },
+  icon: { marginRight: 8 },
+  addButtonText: { color: 'green', fontWeight: 'bold', fontSize: 16 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fafafa',
+    padding: 15,
+    marginBottom: 12,
+    borderRadius: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
   },
+  cardText: { flex: 1, fontSize: 16 },
+  completedText: { textDecorationLine: 'line-through', color: '#888' },
+  emptyContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { fontSize: 18, color: '#666' },
 });
